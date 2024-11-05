@@ -2,6 +2,8 @@ import pandas as pd
 import numpy as np
 import torch
 from torch.onnx.symbolic_opset9 import tensor
+from KNN import  knn
+from Kmeans import kmeans
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 herb_num = 100
@@ -71,4 +73,10 @@ concat_target = np.hstack([adj.T, target_sim])
 concat_target_tensor = tensor.FloatTensor(concat_target).to(device)
 
 # K-means and KNN capture features
+knn_herb = knn(concat_herb_tensor.detach().cpu().numpy(), 13).to(device)
+knn_target = knn(concat_target_tensor.detach().cpu().numpy(), 13).to(device)
+kmeans_herb = kmeans(concat_herb_tensor.detach().cpu().numpy(), 9).to(device)
+kmeans_target = kmeans(concat_target_tensor.detach().cpu().numpy(), 9).to(device)
+
+"""==============================================================================================="""
 

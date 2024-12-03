@@ -54,4 +54,3 @@ def kmeans(node_feature, cluster_num):
 
     return g
 
-

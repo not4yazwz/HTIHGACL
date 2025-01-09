@@ -10,8 +10,8 @@ class Model(nn.Module):
         self.contrast_learning_target = Contrast_learning(input_dimension, hidden_dimension)
         self.view_attention_herb = View_attention(herb_num, hidden_dimension)
         self.view_attention_target = View_attention(target_num, hidden_dimension)
-        self.transformer_herb = TransformerEncoder([hidden_dimension, hidden_dimension], hidden_dimension)
-        self.transformer_target = TransformerEncoder([hidden_dimension, hidden_dimension], hidden_dimension)
+        self.transformer_herb = TransformerEncoder([hidden_dimension, hidden_dimension])
+        self.transformer_target = TransformerEncoder([hidden_dimension, hidden_dimension])
 
         self.linear_x_1 = nn.Linear(hidden_dimension, 256)
         self.linear_x_2 = nn.Linear(256, 128)

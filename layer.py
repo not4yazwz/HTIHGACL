@@ -246,17 +246,16 @@ class FeedForwardLayer(nn.Module):
 
 
 class TransformerEncoder(nn.Module):
-    def __init__(self, input_data_dims, hyperpm):
+    def __init__(self, input_data_dims):
         super(TransformerEncoder, self).__init__()
-        self.hyperpm = hyperpm
         self.input_data_dims = input_data_dims
-        self.d_q = hyperpm.n_hidden
-        self.d_k = hyperpm.n_hidden
-        self.d_v = hyperpm.n_hidden
-        self.n_head = hyperpm.n_head
-        self.dropout = hyperpm.dropout
-        self.n_layer = hyperpm.nlayer
-        self.modal_num = hyperpm.nmodal
+        self.d_q = 20
+        self.d_k = 20
+        self.d_v = 20
+        self.n_head = 5
+        self.dropout = 0.1
+        self.n_layer = 2
+        self.modal_num = 2
         self.d_out = self.d_v * self.n_head * self.modal_num
 
         self.InputLayer = VariLengthInputLayer(self.input_data_dims, self.d_k, self.d_v, self.n_head, self.dropout)
@@ -290,5 +289,4 @@ class TransformerEncoder(nn.Module):
 
         x = x.view(bs, -1)
 
-        # output = self.Outputlayer(x)
         return x

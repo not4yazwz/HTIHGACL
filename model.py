@@ -23,8 +23,14 @@ class Model(nn.Module):
 
 
     def forward(self, herb_x, target_x, herb_knn, target_knn, herb_kmeans, target_kmeans):
+
+        # 1.超图 + 对比学习 | shape (node_num, hidden_dim)
         herb_x1, herb_x2, herb_cl_loss = self.contrast_learning_herb(herb_x, herb_x, herb_knn, herb_kmeans)
+
+        # 2.自适应多来源特征权重 | shape (1, 2, node_num, hidden_dim)
         herb_attention_x = self.view_attention_herb(herb_x1, herb_x2)
+
+        # 3.transformer | shape (1, node_num, hidden_dim)
         herb_concat_x = torch.cat([herb_attention_x[0].t(), herb_attention_x[1].t()], dim=1)
         herb_x = self.transformer_herb(herb_concat_x)
 
@@ -33,6 +39,7 @@ class Model(nn.Module):
         target_concat_x = torch.cat([target_attention_x[0].t(), target_attention_x[1].t()], dim=1)
         target_x = self.transformer_target(target_concat_x)
 
+        # 4.MLP
         herb_fc1 = torch.relu(self.linear_x_1(herb_x))
         herb_fc2 = torch.relu(self.linear_x_2(herb_fc1))
         herb_fc = torch.relu(self.linear_x_3(herb_fc2))

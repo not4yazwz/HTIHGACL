@@ -95,15 +95,15 @@ class HGNN_conv(nn.Module):
 
 class View_attention(nn.Module):
     def __init__(self, node_num, hidden_dimension):
-        super(View_attention).__init__()
-        self.fully_connect1 = nn.Linear(in_features=2, out_features=self.hiddim)
+        super(View_attention, self).__init__()
+        self.fully_connect1 = nn.Linear(in_features=2, out_features=hidden_dimension)
         self.fully_connect2 = nn.Linear(in_features=self.hiddim, out_features=2)
         self.global_avg_pool = nn.AvgPool2d((hidden_dimension, node_num), (1, 1))
         self.activation = nn.Sigmoid()
 
     def forward(self, x1, x2):
         concat_x = torch.cat((x1, x2), 1).t()
-        concat_x = concat_x.view(1, 1 * 2, x1.shape[1], -1)
+        concat_x = concat_x.view(1, 1 * 2, x1.shape[1], -1)  # shape: 1, 2, node_num, hidden_dimension
         z = self.global_avg_pool(concat_x)
         z = z.view(z.size(0), -1)
         f1 = torch.relu(self.fully_connect1(z))
@@ -165,48 +165,39 @@ class EncodeLayer(nn.Module):
 
 
 class VariLengthInputLayer(nn.Module):
+    """多模态特征整合"""
     def __init__(self, input_data_dims, d_k, d_v, n_head, dropout):
         super(VariLengthInputLayer, self).__init__()
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.n_head = n_head
         self.dims = input_data_dims
         self.d_k = d_k
         self.d_v = d_v
-        self.w_qs = []
-        self.w_ks = []
-        self.w_vs = []
+        self.w_qs = nn.ModuleList()
+        self.w_ks = nn.ModuleList()
+        self.w_vs = nn.ModuleList()
         for i, dim in enumerate(self.dims):
-            self.w_q = nn.Linear(dim, n_head * d_k, bias=False)
-            self.w_k = nn.Linear(dim, n_head * d_k, bias=False)
-            self.w_v = nn.Linear(dim, n_head * d_v, bias=False)
-
-            self.w_qs.append(self.w_q)
-            self.w_ks.append(self.w_k)
-            self.w_vs.append(self.w_v)
-            self.add_module('linear_q_%d_%d' % (dim, i), self.w_q)
-            self.add_module('linear_k_%d_%d' % (dim, i), self.w_k)
-            self.add_module('linear_v_%d_%d' % (dim, i), self.w_v)
-            self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
+            self.w_qs.append(nn.Linear(dim, n_head * d_k, bias=False))
+            self.w_ks.append(nn.Linear(dim, n_head * d_k, bias=False))
+            self.w_vs.append(nn.Linear(dim, n_head * d_v, bias=False))
         self.attention = Attention(temperature=d_k ** 0.5, attn_dropout=dropout)
         self.fc = nn.Linear(n_head * d_v, n_head * d_v)
         self.dropout = nn.Dropout(dropout)
         self.layer_norm = nn.LayerNorm(n_head * d_v, eps=1e-6)
 
     def forward(self, input_data, mask=None):
-
         temp_dim = 0
-        bs = input_data.size(0)
-        modal_num = len(self.dims)
-        q = torch.zeros(bs, modal_num, self.n_head * self.d_k).to(self.device)
-        k = torch.zeros(bs, modal_num, self.n_head * self.d_k).to(self.evice)
+        bs = input_data.size(0)  # batch_size
+        modal_num = len(self.dims) # view_num
+        q = torch.zeros(bs, modal_num, self.n_head * self.d_k).to(self.device) # 1, 2, 5x20
+        k = torch.zeros(bs, modal_num, self.n_head * self.d_k).to(self.device)
         v = torch.zeros(bs, modal_num, self.n_head * self.d_v).to(self.device)
 
         for i in range(modal_num):
             w_q = self.w_qs[i]
             w_k = self.w_ks[i]
             w_v = self.w_vs[i]
-
-            data = input_data[:, temp_dim: temp_dim + self.dims[i]]
+            data = input_data[:, temp_dim: temp_dim + self.dims[i]]  # node_num : 0-hidden_dim, node_num : hidden_dim-2hidden_dim
             temp_dim += self.dims[i]
             q[:, i, :] = w_q(data)
             k[:, i, :] = w_k(data)
@@ -274,8 +265,11 @@ class TransformerEncoder(nn.Module):
 
 
     def forward(self, x):
+        # 输入初始特征
         bs = x.size(0)
         attn_map = []
+
+        # 得到初始的特征 和 注意力权重
         x, _attn = self.InputLayer(x)
 
         attn = _attn.mean(dim=1)

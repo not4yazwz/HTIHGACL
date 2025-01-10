@@ -2,9 +2,10 @@ import numpy as np
 import torch
 from torch import optim
 from torch.onnx.symbolic_opset9 import tensor
-from KNN import  knn
+from KNN import knn
 from Kmeans import kmeans
 from model import Model
+from Loss import LossModule
 
 # 1、参数设置
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -82,15 +83,25 @@ knn_target = knn(concat_target_tensor.detach().cpu().numpy(), 13).to(device)
 kmeans_herb = kmeans(concat_herb_tensor.detach().cpu().numpy(), 9).to(device)
 kmeans_target = kmeans(concat_target_tensor.detach().cpu().numpy(), 9).to(device)
 
+
+def get_L2reg(parameters):
+    reg = 0
+    for param in parameters:
+        reg += 0.5 * (param ** 2).sum()
+    return reg
+
+
 """==============================================================================================="""
 model = Model(herb_num, target_num, 64, 64).to(device)
-optimizer = optim.Adam(model.parameters(), lr = 0.0001)
+optimizer = optim.Adam(model.parameters(), lr=0.0001)
 
+model.train()
+loss = LossModule()
 for epoch in range(1, 1000):
-    score, mi_cl_loss, dis_cl_loss = model(concat_mi_tensor, concat_dis_tensor,
-                                           G_mi_Kn, G_mi_Km, G_dis_Kn, G_dis_Km)
+    score, mi_cl_loss, dis_cl_loss = model(herb_sim_tensor, target_sim_tensor,
+                                           knn_herb, knn_target, kmeans_herb, kmeans_target)
 
-    recover_loss = regression_crit(one_index, zero_index, train_data[4].to(device), score)
+    recover_loss = loss(one_index, zero_index, train_data[4].to(device), score)
     reg_loss = get_L2reg(model.parameters())
 
     tol_loss = recover_loss + mi_cl_loss + dis_cl_loss + 0.00001 * reg_loss
